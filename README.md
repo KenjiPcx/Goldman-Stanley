@@ -66,7 +66,7 @@ Goldman Stanley is a platform where you can give a prompt and our AI agents will
 - **AI SDK**: Vercel AI SDK for model integration
   - Google Gemini 2.5 (Flash & Pro)
   - OpenAI (Embeddings)
-- **Parallel.ai**: Web search and data extraction
+- **Firecrawl**: Web search and data extraction
 - **Python Interpreter**: Execute Python code in agents
 
 ### Key Libraries
@@ -109,7 +109,7 @@ batchTaskOrchestrations → datasets → datasetRows → datasetCells
 - Convex account
 - Clerk account
 - OpenAI API key
-- Parallel.ai API key (for web search)
+- Firecrawl API key (for web search)
 
 ### Installation
 
@@ -144,7 +144,7 @@ OPENAI_API_KEY=your_openai_api_key
 GOOGLE_GENERATIVE_AI_API_KEY=your_google_ai_key
 
 # Web Search & Extraction
-PARALLEL_API_KEY=your_parallel_api_key
+FIRECRAWL_API_KEY=your_firecrawl_api_key
 ```
 
 ### Run Development Server
@@ -203,15 +203,27 @@ Navigate to `/datasets` to view:
 - Individual task execution details
 - Export options
 
-## 🎨 Future: 3D Office Visualization
+## 🎨 3D Office Visualization
 
-We're planning to add an immersive 3D office experience with **Three.js** where you can:
-- **See your AI team**: Visualize agents as office workers in a Goldman Sachs-style environment
-- **Real-time animations**: Watch agents "working" when busy, relaxing when idle
-- **Interactive workspace**: Click on agents to see what they're researching
-- **Status indicators**: Visual cues for agent states (thinking, searching, analyzing)
+**NEW!** Experience an immersive 3D office where you can visualize your AI research team at work!
 
-This will make the experience feel like you have a real team working for you!
+### Features
+- **See your AI team**: Research agents appear as office workers
+- **Real-time animations**: Watch agents walk to their desks when assigned tasks
+- **Interactive workspace**: Click on agents or desks to see task execution logs
+- **Status indicators**: Visual cues for agent states (idle, walking, working, busy)
+- **Live statistics**: Dashboard showing active/completed/failed tasks
+
+### How to Access
+Navigate to `/office` or click the "Office 🏢" button in the navigation bar.
+
+### Agent Behavior
+- **Idle**: Agents stand in the center area waiting for tasks
+- **Assigned Task**: Agent walks to an available desk
+- **Working**: Agent stays at desk, showing status updates in chat bubbles
+- **Completed**: Agent returns to idle area
+
+Each agent corresponds to a `taskExecution`, and their status updates show the latest tool calls and progress.
 
 ## 📁 Project Structure
 
@@ -224,18 +236,26 @@ goldman-stanley/
 │   │   └── tools/             # Agent tools
 │   ├── orchestration/         # Task execution system
 │   ├── messaging/             # Chat & thread management
+│   ├── office/                # Office visualization queries
 │   └── auth/                  # Authentication helpers
 ├── src/
-│   ├── app/                   # TanStack Start routes
-│   │   ├── page.tsx          # Landing page
-│   │   ├── research-chat/    # Research chat interface
-│   │   ├── datasets/         # Dataset viewer
-│   │   └── reviews/          # Review config management
-│   └── components/
-│       ├── ai-chat/          # Chat components
-│       ├── ai-elements/      # AI UI elements
-│       ├── tools-ui/         # Research proposal UI
-│       └── research/         # Dataset dashboard
+│   ├── routes/                # TanStack Start routes
+│   │   ├── index.tsx          # Landing page
+│   │   ├── research-chat.tsx  # Research chat interface
+│   │   ├── datasets.tsx       # Dataset viewer
+│   │   ├── reviews.tsx        # Review config management
+│   │   └── office.tsx         # 3D office visualization (NEW)
+│   ├── components/
+│   │   ├── ai-chat/          # Chat components
+│   │   ├── ai-elements/      # AI UI elements
+│   │   ├── tools-ui/         # Research proposal UI
+│   │   ├── research/         # Dataset dashboard
+│   │   └── office/           # 3D office components (NEW)
+│   │       ├── Employee.tsx  # 3D employee with animations
+│   │       ├── Desk.tsx      # Desk component
+│   │       └── OfficeScene.tsx # Main 3D scene
+│   └── lib/
+│       └── office/           # Office types & constants (NEW)
 └── public/                   # Static assets
 ```
 
@@ -263,7 +283,7 @@ MIT License - see LICENSE file for details
 - **TanStack Team**: For the amazing Start framework
 - **Convex Team**: For the incredible backend platform and agent framework
 - **Vercel**: For the AI SDK
-- **Parallel.ai**: For web search capabilities
+- **Firecrawl**: For web search capabilities
 
 ## 📬 Contact
 

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ReviewsRouteImport } from './routes/reviews'
 import { Route as ResearchChatRouteImport } from './routes/research-chat'
+import { Route as OfficeRouteImport } from './routes/office'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as IndexRouteImport } from './routes/index'
@@ -23,6 +24,11 @@ const ReviewsRoute = ReviewsRouteImport.update({
 const ResearchChatRoute = ResearchChatRouteImport.update({
   id: '/research-chat',
   path: '/research-chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OfficeRoute = OfficeRouteImport.update({
+  id: '/office',
+  path: '/office',
   getParentRoute: () => rootRouteImport,
 } as any)
 const McpRoute = McpRouteImport.update({
@@ -45,6 +51,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/datasets': typeof DatasetsRoute
   '/mcp': typeof McpRoute
+  '/office': typeof OfficeRoute
   '/research-chat': typeof ResearchChatRoute
   '/reviews': typeof ReviewsRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/datasets': typeof DatasetsRoute
   '/mcp': typeof McpRoute
+  '/office': typeof OfficeRoute
   '/research-chat': typeof ResearchChatRoute
   '/reviews': typeof ReviewsRoute
 }
@@ -60,21 +68,36 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/datasets': typeof DatasetsRoute
   '/mcp': typeof McpRoute
+  '/office': typeof OfficeRoute
   '/research-chat': typeof ResearchChatRoute
   '/reviews': typeof ReviewsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/datasets' | '/mcp' | '/research-chat' | '/reviews'
+  fullPaths:
+    | '/'
+    | '/datasets'
+    | '/mcp'
+    | '/office'
+    | '/research-chat'
+    | '/reviews'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/datasets' | '/mcp' | '/research-chat' | '/reviews'
-  id: '__root__' | '/' | '/datasets' | '/mcp' | '/research-chat' | '/reviews'
+  to: '/' | '/datasets' | '/mcp' | '/office' | '/research-chat' | '/reviews'
+  id:
+    | '__root__'
+    | '/'
+    | '/datasets'
+    | '/mcp'
+    | '/office'
+    | '/research-chat'
+    | '/reviews'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DatasetsRoute: typeof DatasetsRoute
   McpRoute: typeof McpRoute
+  OfficeRoute: typeof OfficeRoute
   ResearchChatRoute: typeof ResearchChatRoute
   ReviewsRoute: typeof ReviewsRoute
 }
@@ -93,6 +116,13 @@ declare module '@tanstack/react-router' {
       path: '/research-chat'
       fullPath: '/research-chat'
       preLoaderRoute: typeof ResearchChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/office': {
+      id: '/office'
+      path: '/office'
+      fullPath: '/office'
+      preLoaderRoute: typeof OfficeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mcp': {
@@ -123,6 +153,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DatasetsRoute: DatasetsRoute,
   McpRoute: McpRoute,
+  OfficeRoute: OfficeRoute,
   ResearchChatRoute: ResearchChatRoute,
   ReviewsRoute: ReviewsRoute,
 }

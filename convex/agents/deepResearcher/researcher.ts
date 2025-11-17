@@ -9,7 +9,7 @@ import { z } from "zod";
 import { createDatasetToolset } from "../tools/dataset.tool";
 import { ActionCtx } from "../../_generated/server";
 
-if (!process.env.PARALLEL_API_KEY) throw new Error("PARALLEL_API_KEY is not set");
+if (!process.env.FIRECRAWL_API_KEY) throw new Error("FIRECRAWL_API_KEY is not set");
 
 export const deepResearchAgent = new Agent(components.agent, {
     name: "Deep Research Agent",

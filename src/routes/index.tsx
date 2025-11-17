@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Sparkles, Zap, Clock, Database, Building2 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { AppNavDropdown } from "@/components/navigation/app-nav-dropdown";
@@ -56,6 +57,9 @@ function Home() {
               <Link to="/datasets">
                 <Button variant="ghost">Datasets</Button>
               </Link>
+              <Link to="/office">
+                <Button variant="ghost">Office 🏢</Button>
+              </Link>
             </SignedIn>
             <ThemeToggle />
             <SignedOut>
@@ -75,9 +79,9 @@ function Home() {
         <div className="max-w-4xl mx-auto text-center space-y-8 py-12">
           <div className="space-y-5">
             <div className="inline-block">
-              <Badge className="mb-2 px-4 py-1 text-sm font-semibold">
+              <CustomBadge className="mb-2 px-4 py-1 text-sm font-semibold">
                 Powered by TanStack Start + Convex
-              </Badge>
+              </CustomBadge>
             </div>
             <h1 className="text-5xl md:text-6xl font-bold tracking-tight">
               Never Do
@@ -157,7 +161,7 @@ function FeatureCard({
   );
 }
 
-function Badge({ children, className }: { children: React.ReactNode; className?: string }) {
+function CustomBadge({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <span className={`inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary ring-1 ring-inset ring-primary/20 ${className}`}>
       {children}

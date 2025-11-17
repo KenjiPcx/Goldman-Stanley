@@ -35,7 +35,7 @@ OPENAI_API_KEY=your_key
 GOOGLE_GENERATIVE_AI_API_KEY=your_key
 
 # Web Search
-PARALLEL_API_KEY=your_key
+FIRECRAWL_API_KEY=your_key
 \`\`\`
 
 ## 📝 Key Pages

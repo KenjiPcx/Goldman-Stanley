@@ -72,6 +72,32 @@ export const updateTaskExecutionContext = internalMutation({
 });
 
 /**
+ * Add a step/log entry to a task execution
+ * Used for tracking progress, tool calls, and events
+ */
+export const addTaskExecutionStep = internalMutation({
+    args: {
+        taskExecutionId: v.id("taskExecutions"),
+        stepName: v.string(),
+        message: v.optional(v.string()),
+        detail: v.optional(v.string()),
+        progress: v.optional(v.number()),
+    },
+    returns: v.id("taskExecutionSteps"),
+    handler: async (ctx, args) => {
+        const stepId = await ctx.db.insert("taskExecutionSteps", {
+            taskExecutionId: args.taskExecutionId,
+            stepName: args.stepName,
+            message: args.message,
+            detail: args.detail,
+            progress: args.progress,
+            createdAt: Date.now(),
+        });
+        return stepId;
+    },
+});
+
+/**
  * Link a task execution to a created/modified business entity
  * Creates a record in the outputEntities table
  */

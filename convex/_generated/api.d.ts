@@ -18,6 +18,7 @@ import type * as auth_helpers from "../auth/helpers.js";
 import type * as auth_users from "../auth/users.js";
 import type * as messaging_chat from "../messaging/chat.js";
 import type * as messaging_thread_titles from "../messaging/thread_titles.js";
+import type * as office_officeQueries from "../office/officeQueries.js";
 import type * as orchestration_delegations from "../orchestration/delegations.js";
 import type * as orchestration_taskExecutions from "../orchestration/taskExecutions.js";
 import type * as research_batchResearchOrchestratorWorkflow from "../research/batchResearchOrchestratorWorkflow.js";
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   "auth/users": typeof auth_users;
   "messaging/chat": typeof messaging_chat;
   "messaging/thread_titles": typeof messaging_thread_titles;
+  "office/officeQueries": typeof office_officeQueries;
   "orchestration/delegations": typeof orchestration_delegations;
   "orchestration/taskExecutions": typeof orchestration_taskExecutions;
   "research/batchResearchOrchestratorWorkflow": typeof research_batchResearchOrchestratorWorkflow;

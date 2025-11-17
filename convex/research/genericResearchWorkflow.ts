@@ -131,6 +131,15 @@ export const genericResearchWorkflow = workflow.define({
                 prompt: buildCoordinatorPrompt(args.userPrompt),
             });
 
+            // Log research start for office visualization
+            await step.runMutation(
+                internal.orchestration.taskExecutions.addTaskExecutionStep,
+                {
+                    taskExecutionId: args.taskExecutionId,
+                    stepName: "researchStart",
+                    message: "🚀 Starting research",
+                }
+            );
 
             // Check if this is dataset research upfront
             const datasetContext = await step.runQuery(
@@ -159,7 +168,7 @@ export const genericResearchWorkflow = workflow.define({
                     iterations++;
 
                     try {
-                        const { finishReason, text } = await step.runAction(
+                        const { finishReason, text, toolCalls } = await step.runAction(
                             internal.research.genericResearchWorkflow.runAgentStep,
                             {
                                 taskExecutionId: args.taskExecutionId,
@@ -178,10 +187,55 @@ export const genericResearchWorkflow = workflow.define({
                         // Check if agent is still working (making tool calls)
                         if (finishReason === "tool-calls") {
                             console.log(`[genericResearchWorkflow] Agent continuing work (iteration ${iterations})`);
+
+                            // Log tool calls as task execution steps for office visualization
+                            if (toolCalls && toolCalls.length > 0) {
+                                for (const toolCall of toolCalls) {
+                                    // Create a user-friendly message for the tool call
+                                    let message = `Calling ${toolCall.toolName}`;
+                                    let detail = undefined;
+
+                                    // Add context based on tool name
+                                    if (toolCall.toolName === 'webSearch' && toolCall.args?.query) {
+                                        message = `🌐 Searching: "${toolCall.args.query}"`;
+                                    } else if (toolCall.toolName === 'pythonInterpreter' && toolCall.args?.code) {
+                                        message = `🐍 Running Python code`;
+                                        detail = toolCall.args.code.substring(0, 100) + '...';
+                                    } else if (toolCall.toolName === 'saveFieldValue' && toolCall.args?.fieldName) {
+                                        message = `💾 Saving ${toolCall.args.fieldName}`;
+                                    } else if (toolCall.toolName === 'delegate') {
+                                        message = `👥 Delegating research task`;
+                                    } else if (toolCall.toolName === 'scratchpad') {
+                                        message = `📝 Updating scratchpad`;
+                                    }
+
+                                    await step.runMutation(
+                                        internal.orchestration.taskExecutions.addTaskExecutionStep,
+                                        {
+                                            taskExecutionId: args.taskExecutionId,
+                                            stepName: toolCall.toolName,
+                                            message,
+                                            detail,
+                                        }
+                                    );
+                                }
+                            }
+
                             continue;
                         } else {
                             // Agent thinks it's done
                             console.log(`[genericResearchWorkflow] Agent completed after ${iterations} iterations with reason: ${finishReason}`);
+
+                            // Log completion step for office visualization
+                            await step.runMutation(
+                                internal.orchestration.taskExecutions.addTaskExecutionStep,
+                                {
+                                    taskExecutionId: args.taskExecutionId,
+                                    stepName: "agentComplete",
+                                    message: "✅ Research phase complete",
+                                }
+                            );
+
                             agentIsDone = true;
                         }
 
@@ -201,6 +255,16 @@ export const genericResearchWorkflow = workflow.define({
                 // Review phase: Check quality if this is dataset research
                 if (needsReview && agentIsDone && datasetContext) {
                     console.log(`[genericResearchWorkflow] Running quality review (attempt ${reviewAttempts}/${MAX_REVIEW_ATTEMPTS})`);
+
+                    // Log review start for office visualization
+                    await step.runMutation(
+                        internal.orchestration.taskExecutions.addTaskExecutionStep,
+                        {
+                            taskExecutionId: args.taskExecutionId,
+                            stepName: "qualityReview",
+                            message: `🔍 Quality review (attempt ${reviewAttempts}/${MAX_REVIEW_ATTEMPTS})`,
+                        }
+                    );
 
                     // Get review config from batch (or use default)
                     const reviewConfigId = await step.runQuery(
@@ -489,8 +553,12 @@ export const runAgentStep = internalAction({
             v.literal("unknown")
         ),
         text: v.string(),
+        toolCalls: v.optional(v.array(v.object({
+            toolName: v.string(),
+            args: v.optional(v.any()),
+        }))),
     }),
-    handler: async (ctx, args): Promise<{ finishReason: FinishReason; text: string }> => {
+    handler: async (ctx, args): Promise<{ finishReason: FinishReason; text: string; toolCalls?: Array<{ toolName: string; args?: any }> }> => {
         const tools = await resolveTools(ctx, args.taskExecutionId);
 
         // Get dataset context if this is dataset research
@@ -517,9 +585,19 @@ export const runAgentStep = internalAction({
             }
         );
 
+        // Extract tool calls if present
+        let toolCalls: Array<{ toolName: string; args?: any }> | undefined;
+        if (result.finishReason === "tool-calls" && (result as any).toolCalls) {
+            toolCalls = (result as any).toolCalls.map((tc: any) => ({
+                toolName: tc.toolName,
+                args: tc.args,
+            }));
+        }
+
         return {
             finishReason: result.finishReason as FinishReason,
             text: result.text,
+            toolCalls,
         };
     },
 });

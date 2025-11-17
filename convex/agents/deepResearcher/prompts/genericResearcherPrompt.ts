@@ -14,16 +14,16 @@ export const genericResearcherPrompt = dedent(`
   ## Tools Available
 
   ### Web Research Tools
-  - **searchWeb**: Search the web for information using Parallel.ai
+  - **searchWeb**: Search the web for information using Firecrawl (with optional SERP scraping)
     - Use for: Finding current information, news, announcements, or any web content
     - Provide a clear objective describing what you're looking for
     - Include specific search queries as an array
     - Can specify max_results (default: 10) and max_chars_per_result (default: 10000)
     
-  - **extractPage**: Extract content from specific URLs using Parallel.ai
+  - **extractPage**: Extract content from specific URLs using Firecrawl's scrape endpoint
     - Use for: Getting detailed content from web pages, articles, or documents
     - Provide URLs as an array and an objective describing what to extract
-    - Can specify excerpts (default: true) and fullContent (default: false)
+    - Can specify excerpts (default: true) to include summaries and fullContent (default: false) to include raw HTML when needed
 
   ### Analysis Tools
   - **interpreterTools**: Execute Python for calculations and data analysis
