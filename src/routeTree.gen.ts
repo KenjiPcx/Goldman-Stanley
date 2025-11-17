@@ -11,10 +11,12 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ReviewsRouteImport } from './routes/reviews'
 import { Route as ResearchChatRouteImport } from './routes/research-chat'
+import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as OfficeRouteImport } from './routes/office'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TaskExecutionIdRouteImport } from './routes/task-execution.$id'
 
 const ReviewsRoute = ReviewsRouteImport.update({
   id: '/reviews',
@@ -24,6 +26,11 @@ const ReviewsRoute = ReviewsRouteImport.update({
 const ResearchChatRoute = ResearchChatRouteImport.update({
   id: '/research-chat',
   path: '/research-chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OfficeRoute = OfficeRouteImport.update({
@@ -46,22 +53,31 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TaskExecutionIdRoute = TaskExecutionIdRouteImport.update({
+  id: '/task-execution/$id',
+  path: '/task-execution/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/datasets': typeof DatasetsRoute
   '/mcp': typeof McpRoute
   '/office': typeof OfficeRoute
+  '/pricing': typeof PricingRoute
   '/research-chat': typeof ResearchChatRoute
   '/reviews': typeof ReviewsRoute
+  '/task-execution/$id': typeof TaskExecutionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/datasets': typeof DatasetsRoute
   '/mcp': typeof McpRoute
   '/office': typeof OfficeRoute
+  '/pricing': typeof PricingRoute
   '/research-chat': typeof ResearchChatRoute
   '/reviews': typeof ReviewsRoute
+  '/task-execution/$id': typeof TaskExecutionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -69,8 +85,10 @@ export interface FileRoutesById {
   '/datasets': typeof DatasetsRoute
   '/mcp': typeof McpRoute
   '/office': typeof OfficeRoute
+  '/pricing': typeof PricingRoute
   '/research-chat': typeof ResearchChatRoute
   '/reviews': typeof ReviewsRoute
+  '/task-execution/$id': typeof TaskExecutionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -79,18 +97,30 @@ export interface FileRouteTypes {
     | '/datasets'
     | '/mcp'
     | '/office'
+    | '/pricing'
     | '/research-chat'
     | '/reviews'
+    | '/task-execution/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/datasets' | '/mcp' | '/office' | '/research-chat' | '/reviews'
+  to:
+    | '/'
+    | '/datasets'
+    | '/mcp'
+    | '/office'
+    | '/pricing'
+    | '/research-chat'
+    | '/reviews'
+    | '/task-execution/$id'
   id:
     | '__root__'
     | '/'
     | '/datasets'
     | '/mcp'
     | '/office'
+    | '/pricing'
     | '/research-chat'
     | '/reviews'
+    | '/task-execution/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -98,8 +128,10 @@ export interface RootRouteChildren {
   DatasetsRoute: typeof DatasetsRoute
   McpRoute: typeof McpRoute
   OfficeRoute: typeof OfficeRoute
+  PricingRoute: typeof PricingRoute
   ResearchChatRoute: typeof ResearchChatRoute
   ReviewsRoute: typeof ReviewsRoute
+  TaskExecutionIdRoute: typeof TaskExecutionIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -116,6 +148,13 @@ declare module '@tanstack/react-router' {
       path: '/research-chat'
       fullPath: '/research-chat'
       preLoaderRoute: typeof ResearchChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/office': {
@@ -146,6 +185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/task-execution/$id': {
+      id: '/task-execution/$id'
+      path: '/task-execution/$id'
+      fullPath: '/task-execution/$id'
+      preLoaderRoute: typeof TaskExecutionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -154,8 +200,10 @@ const rootRouteChildren: RootRouteChildren = {
   DatasetsRoute: DatasetsRoute,
   McpRoute: McpRoute,
   OfficeRoute: OfficeRoute,
+  PricingRoute: PricingRoute,
   ResearchChatRoute: ResearchChatRoute,
   ReviewsRoute: ReviewsRoute,
+  TaskExecutionIdRoute: TaskExecutionIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

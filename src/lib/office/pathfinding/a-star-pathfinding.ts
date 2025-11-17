@@ -11,6 +11,7 @@ let worldOffsetZ = 0;
 let walkableGrid: boolean[][] = [];
 let currentObstaclePadding = OBSTACLE_PADDING;
 let currentDeskPadding = DESK_PADDING;
+let isGridInitialized = false;
 
 class PathNode {
     x: number;
@@ -37,7 +38,10 @@ export const getGridData = () => ({
     walkableGrid,
     obstaclePadding: currentObstaclePadding,
     deskPadding: currentDeskPadding,
+    isInitialized: isGridInitialized,
 });
+
+export const isGridReady = () => isGridInitialized;
 
 export function initializeGrid(
     floorSize: number,
@@ -45,6 +49,8 @@ export function initializeGrid(
     obstaclePadding?: number,
     deskPadding?: number
 ) {
+    isGridInitialized = false; // Reset during initialization
+
     currentObstaclePadding = obstaclePadding ?? OBSTACLE_PADDING;
     currentDeskPadding = deskPadding ?? DESK_PADDING;
 
@@ -101,6 +107,12 @@ export function initializeGrid(
                 }
             }
         }
+    }
+
+    isGridInitialized = true; // Mark as initialized after all obstacles are processed
+    // Silenced in dev to reduce console noise - grid is working correctly
+    if (import.meta.env.PROD) {
+        console.log('Pathfinding grid initialized successfully:', { gridWidth, gridDepth, obstacles: obstacles.length });
     }
 }
 

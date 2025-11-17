@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
-import { Box, Edges } from "@react-three/drei";
+import { Box, Edges, Text } from "@react-three/drei";
 import type { Group } from "three";
 import * as THREE from 'three';
 
@@ -19,11 +19,13 @@ import {
     BODY_WIDTH,
     IDLE_DESTINATIONS,
 } from "@/lib/office/constants";
-import type { OfficeEmployee } from "@/lib/office/types";
-import { findPathAStar } from "@/lib/office/pathfinding/a-star-pathfinding";
+import type { OfficeEmployee, AnimationState } from "@/lib/office/types";
+import { findPathAStar, isGridReady } from "@/lib/office/pathfinding/a-star-pathfinding";
 import { findAvailableDestination, releaseEmployeeReservations } from "@/lib/office/pathfinding/destination-registry";
 import PathVisualizer from "./navigation/path-visualizer";
 import StatusIndicator from "./navigation/status-indicator";
+import ChatBubble from "./navigation/chat-bubble";
+import FloatingStatusBar from "./navigation/floating-status-bar";
 
 interface EmployeeProps {
     employee: OfficeEmployee;
@@ -41,10 +43,12 @@ export const Employee = memo(function Employee({
     debugMode = false,
 }: EmployeeProps) {
     const groupRef = useRef<Group>(null);
+    const isMountedRef = useRef(false);
     const initialPositionRef = useRef<THREE.Vector3>(
         new THREE.Vector3(employee.initialPosition[0], TOTAL_HEIGHT / 2, employee.initialPosition[2])
     );
     const [isHovered, setIsHovered] = useState(false);
+    const ceoLabelRef = useRef<THREE.Group>(null);
 
     const [path, setPath] = useState<THREE.Vector3[] | null>(null);
     const [pathIndex, setPathIndex] = useState<number>(0);
@@ -53,16 +57,41 @@ export const Employee = memo(function Employee({
     const [idleState, setIdleState] = useState<'wandering' | 'waiting'>('wandering');
     const [idleTimer, setIdleTimer] = useState<number>(0);
     const [isGoingToDesk, setIsGoingToDesk] = useState(false);
+    const [animationState, setAnimationState] = useState<AnimationState>('idle');
+    const [showChatBubble, setShowChatBubble] = useState(false);
+
+    // Track mount status
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
 
     const movementSpeed = 1.5;
     const arrivalThreshold = 0.1;
 
-    const colors = useMemo(() => ({
-        hair: getRandomItem(HAIR_COLORS),
-        skin: getRandomItem(SKIN_COLORS),
-        shirt: getRandomItem(SHIRT_COLORS),
-        pants: getRandomItem(PANTS_COLORS),
-    }), []);
+    // Animation refs for typing/thinking animations
+    const headRef = useRef<THREE.Mesh>(null);
+    const bodyRef = useRef<THREE.Mesh>(null);
+
+    const colors = useMemo(() => {
+        if (employee.isCEO) {
+            return {
+                hair: "#FFD700",
+                skin: "#FFE4C4",
+                shirt: "#1E3A8A",
+                pants: "#111827",
+            };
+        }
+
+        return {
+            hair: getRandomItem(HAIR_COLORS),
+            skin: getRandomItem(SKIN_COLORS),
+            shirt: getRandomItem(SHIRT_COLORS),
+            pants: getRandomItem(PANTS_COLORS),
+        };
+    }, [employee.isCEO]);
 
     useEffect(() => {
         return () => {
@@ -80,6 +109,32 @@ export const Employee = memo(function Employee({
             groupRef.current.position.copy(initialPositionRef.current);
         }
     }, [employee.initialPosition]);
+
+    // Update animation state based on employee work state and tool calls
+    useEffect(() => {
+        if (employee.isBusy && employee.workState === 'working') {
+            if (employee.currentToolCall) {
+                setAnimationState('typing');
+                setShowChatBubble(true);
+            } else {
+                setAnimationState('thinking');
+                setShowChatBubble(false);
+            }
+        } else if (employee.workState === 'walking' || isGoingToDesk) {
+            setAnimationState('walking');
+            setShowChatBubble(false);
+        } else {
+            setAnimationState('idle');
+            setShowChatBubble(false);
+        }
+    }, [employee.isBusy, employee.workState, employee.currentToolCall, isGoingToDesk]);
+
+    // Handle navigation triggers - return to desk on certain messages
+    useEffect(() => {
+        if (employee.shouldReturnToDesk && !isGoingToDesk && !employee.isCEO) {
+            setIsGoingToDesk(true);
+        }
+    }, [employee.shouldReturnToDesk, isGoingToDesk, employee.isCEO]);
 
     const chooseNewIdleDestination = useCallback(() => {
         const currentPos = groupRef.current?.position;
@@ -115,12 +170,26 @@ export const Employee = memo(function Employee({
         return newPath;
     }, [employee.id, isGoingToDesk]);
 
-    useFrame((_, delta) => {
+    useFrame((state, delta) => {
         if (!groupRef.current) return;
 
         const currentPos = groupRef.current.position;
         const desiredY = TOTAL_HEIGHT / 2;
         currentPos.y = desiredY;
+
+        if (employee.isCEO) {
+            const ceoHome = initialPositionRef.current;
+            currentPos.lerp(ceoHome, 0.15);
+            if (ceoLabelRef.current) {
+                ceoLabelRef.current.quaternion.copy(state.camera.quaternion);
+            }
+            return;
+        }
+
+        // Don't attempt pathfinding until grid is initialized
+        if (!isGridReady()) {
+            return;
+        }
 
         let targetPathNode: THREE.Vector3 | null = null;
         let isMoving = false;
@@ -196,6 +265,36 @@ export const Employee = memo(function Employee({
                 direction.normalize();
                 const moveDistance = movementSpeed * delta;
                 groupRef.current.position.add(direction.multiplyScalar(Math.min(moveDistance, distance)));
+
+                // Rotate employee to face movement direction
+                if (direction.length() > 0.01) {
+                    const angle = Math.atan2(direction.x, direction.z);
+                    groupRef.current.rotation.y = angle;
+                }
+            }
+        }
+
+        // Animation: Typing/thinking animations
+        if (headRef.current && bodyRef.current) {
+            const timeElapsed = state.clock.elapsedTime;
+            const baseYPos = -TOTAL_HEIGHT / 2;
+
+            if (animationState === 'typing') {
+                // Typing animation: head bobs slightly, body leans forward
+                const typingSpeed = 8;
+                const headBob = Math.sin(timeElapsed * typingSpeed) * 0.02;
+                headRef.current.position.y = baseYPos + LEG_HEIGHT + BODY_HEIGHT + HEAD_HEIGHT / 2 + headBob;
+                bodyRef.current.rotation.x = Math.sin(timeElapsed * typingSpeed * 0.5) * 0.05;
+            } else if (animationState === 'thinking') {
+                // Thinking animation: head tilts side to side
+                const thinkingSpeed = 2;
+                headRef.current.rotation.z = Math.sin(timeElapsed * thinkingSpeed) * 0.1;
+                bodyRef.current.rotation.x = 0.02; // Slight lean back
+            } else {
+                // Reset to default
+                headRef.current.position.y = baseYPos + LEG_HEIGHT + BODY_HEIGHT + HEAD_HEIGHT / 2;
+                headRef.current.rotation.z = 0;
+                bodyRef.current.rotation.x = 0;
             }
         }
     });
@@ -258,21 +357,65 @@ export const Employee = memo(function Employee({
                 <Box args={[BODY_WIDTH, LEG_HEIGHT, BODY_WIDTH * 0.6]} position={[0, baseY + LEG_HEIGHT / 2, 0]} castShadow>
                     <meshStandardMaterial color={colors.pants} />
                 </Box>
-                <Box args={[BODY_WIDTH, BODY_HEIGHT, BODY_WIDTH * 0.6]} position={[0, baseY + LEG_HEIGHT + BODY_HEIGHT / 2, 0]} castShadow>
+                <Box
+                    ref={bodyRef}
+                    args={[BODY_WIDTH, BODY_HEIGHT, BODY_WIDTH * 0.6]}
+                    position={[0, baseY + LEG_HEIGHT + BODY_HEIGHT / 2, 0]}
+                    castShadow
+                >
                     <meshStandardMaterial color={colors.shirt} />
                 </Box>
-                <Box args={[HEAD_WIDTH, HEAD_HEIGHT, HEAD_WIDTH]} position={[0, baseY + LEG_HEIGHT + BODY_HEIGHT + HEAD_HEIGHT / 2, 0]} castShadow>
+                <Box
+                    ref={headRef}
+                    args={[HEAD_WIDTH, HEAD_HEIGHT, HEAD_WIDTH]}
+                    position={[0, baseY + LEG_HEIGHT + BODY_HEIGHT + HEAD_HEIGHT / 2, 0]}
+                    castShadow
+                >
                     <meshStandardMaterial color={colors.skin} />
                 </Box>
                 <Box args={[HAIR_WIDTH, HAIR_HEIGHT, HAIR_WIDTH]} position={[0, baseY + LEG_HEIGHT + BODY_HEIGHT + HEAD_HEIGHT + HAIR_HEIGHT / 2, 0]} castShadow>
                     <meshStandardMaterial color={colors.hair} />
                 </Box>
 
+                {/* Status Indicator - hide message when tool call is active (ChatBubble shows it) */}
                 <StatusIndicator
                     status={currentStatus}
-                    message={employee.statusMessage}
+                    message={employee.currentToolCall ? undefined : employee.statusMessage}
                     visible={currentStatus !== 'none'}
                 />
+
+                {/* Floating Status Bar - positioned lower, only show when no tool call */}
+                <FloatingStatusBar
+                    status={currentStatus}
+                    progress={employee.progress}
+                    visible={employee.isBusy && currentStatus !== 'none' && !employee.currentToolCall}
+                    position={[0, 0.7, 0]}
+                    queueDepth={employee.queueDepth}
+                />
+
+                {/* Chat Bubble for Tool Calls - positioned higher, shows tool call messages */}
+                {employee.currentToolCall && (
+                    <ChatBubble
+                        message={employee.currentToolCall.message}
+                        toolName={employee.currentToolCall.toolName}
+                        visible={showChatBubble && employee.isBusy}
+                        position={[0, 1.3, 0]}
+                    />
+                )}
+
+                {employee.isCEO && (
+                    <group ref={ceoLabelRef}>
+                        <Text
+                            position={[0, baseY + LEG_HEIGHT + BODY_HEIGHT + HEAD_HEIGHT + 0.6, 0]}
+                            fontSize={0.35}
+                            color="#FDE047"
+                            anchorX="center"
+                            anchorY="middle"
+                        >
+                            CEO
+                        </Text>
+                    </group>
+                )}
 
                 {isHovered && <Edges scale={1.05} color="white" />}
             </group>

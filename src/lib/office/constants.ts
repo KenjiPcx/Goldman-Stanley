@@ -58,7 +58,7 @@ export const PLANT_POSITIONS: [number, number, number][] = [
 export const COUCH_POSITION: [number, number, number] = [0, 0, -HALF_FLOOR + 1];
 export const COUCH_ROTATION_Y = 0;
 
-export const CEO_DESK_POS: [number, number, number] = [0, 0, 15];
+export const CEO_DESK_POS: [number, number, number] = [0, 0, HALF_FLOOR - 3];
 
 // Legacy color map (kept for compatibility with older components)
 export const COLORS = {

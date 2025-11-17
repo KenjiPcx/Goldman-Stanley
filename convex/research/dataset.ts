@@ -108,7 +108,18 @@ export const saveFieldValue = internalMutation({
     },
 });
 
-
+/**
+ * Get datasetRow by rowId
+ */
+export const iGetRow = internalQuery({
+    args: {
+        rowId: v.id("datasetRows"),
+    },
+    handler: async (ctx, args) => {
+        const row = await ctx.db.get(args.rowId);
+        return row ?? null;
+    },
+});
 
 /**
  * Get datasetRow by rowId
@@ -226,6 +237,20 @@ export const createRowForEntity = internalMutation({
         }
 
         return rowId;
+    },
+});
+
+/**
+ * Get dataset by ID (lightweight - just the dataset document with schema)
+ * Useful for displaying schema in UI without fetching all rows/cells
+ */
+export const iGetDataset = internalQuery({
+    args: {
+        datasetId: v.id("datasets"),
+    },
+    handler: async (ctx, args) => {
+        const dataset = await ctx.db.get(args.datasetId);
+        return dataset ?? null;
     },
 });
 

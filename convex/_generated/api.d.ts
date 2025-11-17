@@ -16,6 +16,12 @@ import type * as agents_deepResearcher_researcher from "../agents/deepResearcher
 import type * as agents_tools_interpreter from "../agents/tools/interpreter.js";
 import type * as auth_helpers from "../auth/helpers.js";
 import type * as auth_users from "../auth/users.js";
+import type * as autumn from "../autumn.js";
+import type * as autumn_autumnActions from "../autumn/autumnActions.js";
+import type * as concurrency_queries from "../concurrency/queries.js";
+import type * as concurrency_workQueue from "../concurrency/workQueue.js";
+import type * as concurrency_workerPool from "../concurrency/workerPool.js";
+import type * as docs_systemDocs from "../docs/systemDocs.js";
 import type * as messaging_chat from "../messaging/chat.js";
 import type * as messaging_thread_titles from "../messaging/thread_titles.js";
 import type * as office_officeQueries from "../office/officeQueries.js";
@@ -25,10 +31,13 @@ import type * as research_batchResearchOrchestratorWorkflow from "../research/ba
 import type * as research_dataset from "../research/dataset.js";
 import type * as research_genericResearch from "../research/genericResearch.js";
 import type * as research_genericResearchWorkflow from "../research/genericResearchWorkflow.js";
+import type * as research_researchCredits from "../research/researchCredits.js";
 import type * as research_wideResearch from "../research/wideResearch.js";
 import type * as reviews_reviewConfigs from "../reviews/reviewConfigs.js";
 import type * as reviews_reviewerAgent from "../reviews/reviewerAgent.js";
 import type * as reviews_reviewerPrompt from "../reviews/reviewerPrompt.js";
+import type * as usage_tracking_invoicing from "../usage_tracking/invoicing.js";
+import type * as usage_tracking_usage_handler from "../usage_tracking/usage_handler.js";
 
 import type {
   ApiFromModules,
@@ -45,6 +54,12 @@ declare const fullApi: ApiFromModules<{
   "agents/tools/interpreter": typeof agents_tools_interpreter;
   "auth/helpers": typeof auth_helpers;
   "auth/users": typeof auth_users;
+  autumn: typeof autumn;
+  "autumn/autumnActions": typeof autumn_autumnActions;
+  "concurrency/queries": typeof concurrency_queries;
+  "concurrency/workQueue": typeof concurrency_workQueue;
+  "concurrency/workerPool": typeof concurrency_workerPool;
+  "docs/systemDocs": typeof docs_systemDocs;
   "messaging/chat": typeof messaging_chat;
   "messaging/thread_titles": typeof messaging_thread_titles;
   "office/officeQueries": typeof office_officeQueries;
@@ -54,10 +69,13 @@ declare const fullApi: ApiFromModules<{
   "research/dataset": typeof research_dataset;
   "research/genericResearch": typeof research_genericResearch;
   "research/genericResearchWorkflow": typeof research_genericResearchWorkflow;
+  "research/researchCredits": typeof research_researchCredits;
   "research/wideResearch": typeof research_wideResearch;
   "reviews/reviewConfigs": typeof reviews_reviewConfigs;
   "reviews/reviewerAgent": typeof reviews_reviewerAgent;
   "reviews/reviewerPrompt": typeof reviews_reviewerPrompt;
+  "usage_tracking/invoicing": typeof usage_tracking_invoicing;
+  "usage_tracking/usage_handler": typeof usage_tracking_usage_handler;
 }>;
 
 /**
@@ -3312,4 +3330,5 @@ export declare const components: {
       };
     };
   };
+  autumn: {};
 };

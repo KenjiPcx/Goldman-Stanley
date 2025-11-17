@@ -13,6 +13,7 @@ export const createInterpreterTool = () => {
         description: "Execute Python code for calculations and data analysis. REQUIRED for all numeric estimates (dry powder, deal sizes, averages, etc.) - no mental math allowed. Show your work to prevent hallucination. Can use libraries: json, re, statistics, datetime. After calculation, copy output to scratchpad's Calculation Workspace section.",
         args: interpreterSchema,
         handler: async (ctx, args): Promise<string> => {
+            // @ts-ignore - Type instantiation depth issue with createTool inference
             const logs = await ctx.runAction(internal.agents.tools.interpreter.runCode, {
                 code: args.code,
             });

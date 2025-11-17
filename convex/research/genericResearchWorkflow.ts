@@ -267,6 +267,8 @@ export const genericResearchWorkflow = workflow.define({
                     );
 
                     // Get review config from batch (or use default)
+                    // If the batch doesn't have a reviewConfigId set, we'll use the default "datasetQuality" config
+                    // This ensures quality checks always run even if no specific config is specified
                     const reviewConfigId = await step.runQuery(
                         internal.research.genericResearchWorkflow.getReviewConfigIdFromBatch,
                         { taskExecutionId: args.taskExecutionId }
@@ -276,7 +278,8 @@ export const genericResearchWorkflow = workflow.define({
                         internal.research.genericResearchWorkflow.reviewDatasetCells,
                         {
                             taskExecutionId: args.taskExecutionId,
-                            reviewConfigId: reviewConfigId || "datasetQuality", // Fallback to default
+                            // Use batch-specific review config if set, otherwise fall back to comprehensive default
+                            reviewConfigId: reviewConfigId || "datasetQuality",
                             workflowId: "genericResearch",
                             attemptNumber: reviewAttempts,
                             totalAttempts: MAX_REVIEW_ATTEMPTS,
@@ -378,12 +381,12 @@ export const reviewDatasetCells = internalAction({
     },
     handler: async (ctx, args): Promise<ReviewResult> => {
         // Fetch dataset context from row
-        const row = await ctx.runQuery(api.research.dataset.getRow, { rowId: args.rowId });
+        const row = await ctx.runQuery(internal.research.dataset.iGetRow, { rowId: args.rowId });
         if (!row) {
             throw new Error(`Dataset row '${args.rowId}' not found`);
         }
 
-        const dataset = await ctx.runQuery(api.research.dataset.getDataset, { datasetId: row.datasetId });
+        const dataset = await ctx.runQuery(internal.research.dataset.iGetDataset, { datasetId: row.datasetId });
         if (!dataset) {
             throw new Error(`Dataset '${row.datasetId}' not found`);
         }

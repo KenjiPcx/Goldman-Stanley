@@ -102,7 +102,7 @@ export default function ResearchChatPage() {
     const isStreaming = status === "LoadingFirstPage" || status === "LoadingMore";
 
     return (
-        <div className="flex h-screen bg-background">
+        <div className="flex h-screen max-h-full bg-background">
             <ChatSidebar
                 threads={threads}
                 threadId={threadId}
@@ -112,7 +112,7 @@ export default function ResearchChatPage() {
             />
 
             {/* Main Content */}
-            <div className="flex flex-col flex-1 h-screen">
+            <div className="flex flex-col flex-1 h-full max-h-full min-h-0">
                 <ChatHeader
                     sidebarOpen={sidebarOpen}
                     onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}

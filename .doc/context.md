@@ -58,6 +58,156 @@ convex/
 - **Status Indicators**: Introduced `src/components/office/navigation/status-indicator.tsx` for hovering chat bubbles that now surface real tool-call text captured inside `genericResearchWorkflow`.
 - **Hard-coded Decor**: Added basic plants/couch geometry to match the vibe of the reference office while we wait for DB-backed furniture.
 - **Office Route Wiring**: `/office` now maps each `taskExecution` to a deterministic desk/employee pairing so desk occupancy + click handlers stay in sync.
+- **Leader Agent Modal**: A dedicated CEO avatar anchors the front office; clicking them opens a modal with the full Research Chat UI embedded so you can coordinate without leaving `/office`.
+- **Office Knowledge Modal**: Added a “How This Office Works” button plus modal fed by `docs.systemDocs.getOfficeQna`, so humans (and the CEO agent via tooling) can inspect concurrency, pricing, and visualization FAQs inline.
+- **Autumn Billing Integration**: Added `/api/autumn/*` Netlify function backed by `autumnHandler`, wrapped the app with `AutumnProvider`, and standardized on “research task” metering so every completed `taskExecution` can be recorded + billed through Autumn.
+- **TanStack Autumn Route**: Replaced the temporary Netlify function with a native TanStack Start API route (`src/routes/api.autumn.$all.ts`) so `/api/autumn/*` now proxies directly to `autumnHandler` within the same deployment and respects the app’s routing/auth stack.
+- **Autumn Tracking + Pricing**: Wired `convex/concurrency/workQueue.ts` to call `autumn.track` every time a research task completes (feature id `research_tasks`) and shipped a `/pricing` route that renders Autumn’s `<PricingTable />` so billing plans stay in sync with the backend meters.
+
+## Architecture Decisions (2025-11-17)
+
+### Multi-Batch Concurrency Strategy
+
+**Problem:** When users start multiple batch research tasks, how do we handle concurrency?
+- Batch 1: 50 targets
+- Batch 2: 30 targets
+- Do they run in parallel or queue?
+
+**Decision:** **Shared Global Concurrency Pool per User**
+
+**Rationale:**
+1. API rate limits are per user/account, not per batch
+2. Better UX: Both batches show progress simultaneously
+3. Fair scheduling: Round-robin across active batches
+4. Pricing alignment: Users pay for concurrency limit, not per batch
+
+**Implementation:**
+```typescript
+// User-level concurrency management
+interface UserConcurrencyPool {
+  userId: string;
+  maxConcurrentWorkers: number;  // Based on plan tier
+  activeWorkers: number;
+  pendingTasks: TaskQueue[];     // All batches feed into this
+  activeBatches: Set<BatchId>;
+}
+
+// Pricing tiers
+Free:    1 concurrent worker  (batches share, ~60s per task)
+Starter: 3 concurrent workers ($29/mo)
+Pro:     10 concurrent workers ($79/mo)
+BYOK:    20 concurrent workers (user's API key)
+```
+
+**Office Visualization:**
+- Fixed pool of 10 visual workers (represents capacity)
+- Each batch gets a color/section in the office
+- Sidebar shows: "Batch 1: 23/50 done | Batch 2: 5/30 done"
+- Workers dynamically pick from global queue (round-robin)
+
+**API Key Strategy:**
+1. Platform key (your key): Conservative concurrency (1-3 workers)
+2. User-provided key (BYOK): Higher concurrency (10-20 workers)
+3. Users pay for: Concurrency slots OR provide their own key
+
+### Implementation Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         USER INITIATES                           │
+│                    Batch 1: 50 targets                           │
+│                    Batch 2: 30 targets                           │
+└─────────────────────────────┬───────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                  USER WORK QUEUE (Global)                        │
+│  ┌──────────┬──────────┬──────────┬──────────┬──────────┐      │
+│  │ Task 1   │ Task 2   │ Task 3   │ Task 4   │ Task 5   │ ...  │
+│  │ Batch 1  │ Batch 2  │ Batch 1  │ Batch 2  │ Batch 1  │      │
+│  │ Priority │ Priority │ Priority │ Priority │ Priority │      │
+│  └──────────┴──────────┴──────────┴──────────┴──────────┘      │
+│                    80 tasks queued total                         │
+└─────────────────────────────┬───────────────────────────────────┘
+                              │
+                 ┌────────────┼────────────┐
+                 ▼            ▼            ▼
+         ┌──────────┐  ┌──────────┐  ┌──────────┐
+         │ Worker 0 │  │ Worker 1 │  │ Worker 2 │  (Based on tier)
+         └─────┬────┘  └─────┬────┘  └─────┬────┘
+               │             │             │
+               ▼             ▼             ▼
+         ┌──────────────────────────────────────┐
+         │    Research Workflow Execution       │
+         │  • Web Search                        │
+         │  • Data Extraction                   │
+         │  • Python Analysis                   │
+         └──────────────────┬───────────────────┘
+                            │
+                            ▼
+         ┌──────────────────────────────────────┐
+         │    Results → Dataset & UI Update     │
+         └──────────────────────────────────────┘
+```
+
+**Key Components:**
+
+1. **userSubscriptions** - Stores user's tier and concurrency limit
+2. **userWorkQueue** - Global queue of pending tasks for each user
+3. **concurrencyStats** - Real-time stats for UI display
+4. **Worker Pool** - N workers that pull from queue and execute
+
+**How It Works:**
+
+1. User starts Batch 1 (50 targets)
+   - Create 50 taskExecutions
+   - Enqueue all 50 to userWorkQueue
+   - Start worker pool (3 workers for Starter tier)
+
+2. User starts Batch 2 (30 targets) while Batch 1 is running
+   - Create 30 taskExecutions
+   - Enqueue all 30 to SAME userWorkQueue
+   - Workers automatically pick from both batches (round-robin)
+
+3. Workers continuously:
+   - `dequeueNextTask()` - Get next task from queue
+   - Execute research workflow
+   - `completeQueuedTask()` - Mark done, update stats
+   - Repeat until queue empty
+
+4. Office visualization shows:
+   - 3 visual workers (fixed)
+   - Task assignment rotates as they complete
+   - Sidebar: "Batch 1: 23/50 | Batch 2: 5/30"
+
+**Benefits:**
+- ✅ Both batches progress simultaneously
+- ✅ Fair scheduling across batches
+- ✅ Respects API rate limits (user-level concurrency)
+- ✅ Simple pricing: Pay for workers, not batches
+- ✅ Clean UX: Fixed visual workers, dynamic queue
+
+#### 2025-11-17 Dispatcher Upgrade
+- Removed long-lived `worker` actions that blocked Convex runtimes and replaced them with a slot-based dispatcher (`dispatchUserQueue`) that schedules workflows via `ctx.scheduler.runAfter`.
+- `enqueueBatchTasks` now calls the dispatcher immediately so queued research spins up as soon as capacity is available, and `completeQueuedTask` re-invokes it to backfill freed slots.
+- `startTaskExecutionWorkflow`/`handleResearchComplete` propagate the `queueItemId` through workflow context so completion can mark the queue entry and update quotas/stats atomically.
+- Added `rebalanceUserQueue` for manual/admin re-dispatch plus logging hooks inside `startBatchWithWorkQueue` so we can monitor when slot assignment kicks off.
+- Follow-ups: consider smarter batching (per-target configs) and rate-based throttling once we gather telemetry from the new dispatcher metrics.
+
+**Pricing Model:**
+
+| Tier       | Concurrent Workers | Monthly Quota | Price  | BYOK  |
+|------------|-------------------|---------------|--------|-------|
+| Free       | 1 worker          | 50 tasks      | $0     | ❌    |
+| Starter    | 3 workers         | 500 tasks     | $29/mo | ❌    |
+| Pro        | 10 workers        | 5,000 tasks   | $79/mo | ✅    |
+| Enterprise | 50 workers        | 50,000 tasks  | Custom | ✅    |
+
+**Files Created:**
+- `convex/concurrency/schema.ts` - Database tables
+- `convex/concurrency/workQueue.ts` - Queue management
+- `convex/concurrency/workerPool.ts` - Task execution
+- `convex/concurrency/queries.ts` - Query helpers
 
 #### Behavior Rules
 1. **Idle Employees**: Stand in center area when no tasks assigned
@@ -159,6 +309,7 @@ taskExecutionSteps {
 - [x] Removed `parallel-web` dependency and installed `@mendable/firecrawl-js`
 - [x] Rebuilt the `searchWeb`/`extractPage` Convex tools to call Firecrawl search + scrape endpoints
 - [x] Updated prompts and public docs to reference the new Firecrawl workflow and `FIRECRAWL_API_KEY`
+- [x] Reformatted `searchWeb`/`extractPage` outputs to Firecrawl-native summaries plus raw payloads
 - [ ] Confirm production/staging environments have the new Firecrawl API key configured
 
 ### ✅ Completed
@@ -177,6 +328,12 @@ taskExecutionSteps {
 - [ ] Real-time tool call tracking
 - [ ] Employee complaints when overloaded
 - [ ] Team structure with supervisor
+
+### 2025-11-17 Invalid Hook Call Triage
+- **Issue**: SSR load fails with `BaseAutumnProvider` due to `Invalid hook call` (`useState` read on `null`) when `src/router.tsx` reloads.
+- **Todo**:
+  - [x] Investigate invalid hook call from `BaseAutumnProvider` *(root cause: duplicate React copy bundled inside `autumn-js`)*
+  - [x] Implement fix and document results *(Vite dedupe + `ssr.noExternal` forcing `autumn-js`/`swr` to share the app's React instance)*
 
 ### 📋 Planned
 - [ ] Better 3D models
@@ -207,4 +364,46 @@ taskExecutionSteps {
 - Support multiple office floors for scaling
 - Add employee personality traits
 - Integrate with notification system for task completion
+
+## 🔧 Recent Fixes (Nov 17, 2025 - Office Frontend)
+
+### Issue: "Frontend broken again" - Console warnings made it appear broken
+
+**Root Cause**: The office frontend was working correctly, but React Strict Mode in development was causing noisy console warnings that made it seem broken:
+- WebGL context loss warnings (normal in dev, auto-restored)
+- React state update warnings (harmless dev behavior)
+- Verbose pathfinding logs (informational only)
+
+**Fixes Applied**:
+
+1. **OfficeScene.tsx** - Improved Canvas Stability
+   - Added stable `key` prop to prevent unnecessary Canvas recreation
+   - Added `failIfMajorPerformanceCaveat: false` to GL config
+   - Added `frameloop="always"` for consistent rendering
+   - Improved context loss event handlers with proper cleanup
+   - Silenced WebGL warnings in development (only show in production)
+
+2. **a-star-pathfinding.ts** - Reduced Console Noise
+   - Silenced pathfinding grid initialization logs in development
+   - Grid still initializes correctly, just without spam
+
+3. **Employee.tsx** - Added Mount Tracking
+   - Added `isMountedRef` to track component mount status
+   - Prevents potential state updates on unmounted components
+   - Better handles React Strict Mode's double-mounting
+
+**Result**: Console is now clean in development, office visualization works perfectly. The "broken" behavior was just console noise, not actual errors.
+
+**Expected Console in Dev**:
+- ✅ Clerk development key warning (normal)
+- ✅ Some React Strict Mode behavior (normal)
+- ⚠️ React DevTools error (unrelated, can be ignored)
+- ⚠️ Sentry blocked (expected with ad-blockers)
+
+**Files Modified**:
+- `src/components/office/OfficeScene.tsx`
+- `src/components/office/Employee.tsx`
+- `src/lib/office/pathfinding/a-star-pathfinding.ts`
+
+See `.doc/office-fixes-summary.md` for detailed analysis.
 

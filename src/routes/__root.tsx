@@ -21,6 +21,7 @@ import { UserProvider } from '../contexts/user-context'
 import appCss from '../styles.css?url'
 
 import type { QueryClient } from '@tanstack/react-query'
+import { AutumnWrapper } from '@/providers/AutumnWrapper'
 
 interface MyRouterContext {
   queryClient: QueryClient
@@ -57,26 +58,28 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <ClerkProvider>
             <ConvexProvider>
-              <ConvexUserSync />
-              <UserProvider>
-                {children}
-                <TanStackDevtools
-                  config={{
-                    position: 'bottom-right',
-                  }}
-                  plugins={[
-                    {
-                      name: 'Tanstack Router',
-                      render: <TanStackRouterDevtoolsPanel />,
-                    },
-                    TanStackQueryDevtools,
-                  ]}
-                />
-              </UserProvider>
+              <AutumnWrapper>
+                <ConvexUserSync />
+                <UserProvider>
+                  {children}
+                  <TanStackDevtools
+                    config={{
+                      position: 'bottom-right',
+                    }}
+                    plugins={[
+                      {
+                        name: 'Tanstack Router',
+                        render: <TanStackRouterDevtoolsPanel />,
+                      },
+                      TanStackQueryDevtools,
+                    ]}
+                  />
+                </UserProvider>
+              </AutumnWrapper>
             </ConvexProvider>
           </ClerkProvider>
         </ThemeProvider>

@@ -10,17 +10,19 @@ interface DeskProps {
     desk: OfficeDesk;
     onClick?: () => void;
     isHovered?: boolean;
+    showComputer?: boolean;
 }
 
 const defaultTableColor = new THREE.Color("white");
 const hoveredTableColor = new THREE.Color("#a7f3d0");
 
 export const Desk = forwardRef<Group, DeskProps>(function Desk(
-    { desk, onClick, isHovered = false }: DeskProps,
+    { desk, onClick, isHovered = false, showComputer = false }: DeskProps,
     ref,
 ) {
     const isOccupied = !!desk.occupantId;
     const tableColor = isHovered ? hoveredTableColor : defaultTableColor;
+    const renderComputer = isOccupied || showComputer;
 
     return (
         <group
@@ -55,7 +57,7 @@ export const Desk = forwardRef<Group, DeskProps>(function Desk(
                 </Box>
             ))}
 
-            {isOccupied && (
+            {renderComputer && (
                 <group position={[0, DESK_HEIGHT + 0.1, -DESK_DEPTH / 4]}>
                     <Box args={[0.6, COMPUTER_HEIGHT, 0.05]} position={[0, COMPUTER_HEIGHT / 2, 0]} castShadow>
                         <meshStandardMaterial color="#1a1a1a" />

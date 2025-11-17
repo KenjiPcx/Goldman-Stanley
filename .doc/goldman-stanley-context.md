@@ -60,16 +60,35 @@ Users give a prompt, and AI agents execute deep research in parallel across hund
 ✅ README updated for hackathon
 ✅ Navigation configured
 
-## Future Enhancement: 3D Office Visualization
+## 3D Office Visualization ✅
 
-Plan to add Three.js visualization:
+Implemented Three.js visualization with:
 - Virtual office environment (Goldman Sachs style)
 - Agent avatars "working" in real-time
-- Animated states (busy/idle/thinking)
-- Interactive workspace
-- Visual status indicators
+- **Animated states**: Typing, thinking, walking, idle animations
+- **Chat bubbles**: Display tool calls above employees (🌐 Searching, 🐍 Python, 💾 Saving, etc.)
+- **Floating status bars**: Progress indicators and status displays
+- **Smart navigation**: Employees automatically return to desks on completion messages
+- Interactive workspace with clickable employees/desks
+- Visual status indicators (info, success, warning, question)
 
-This will make it feel like you have a real investment bank team working for you.
+### Employee Animations
+- **Typing**: Head bobs and body leans forward when executing tool calls
+- **Thinking**: Head tilts side-to-side when processing/planning
+- **Walking**: Smooth pathfinding with rotation toward movement direction
+- **Idle**: Natural wandering behavior when not busy
+
+### Tool Call Display
+- Chat bubbles appear above employees showing current tool calls
+- Humanized messages: "🌐 Searching: 'query'", "🐍 Running Python code", etc.
+- Auto-hide after 5 seconds or when tool call completes
+- Floating animations for visual appeal
+
+### Navigation Triggers
+Employees automatically return to their desks when messages contain:
+- "completed", "saving", "writing", "finalizing", "done", "finished", "saved"
+
+This creates a realistic feeling of having a real investment bank research team working for you.
 
 ## Hackathon Submission Points
 
@@ -102,14 +121,23 @@ pnpm dev
 - `convex/agents/` - AI agent system
 - `README.md` - Hackathon documentation
 
+## Recent Enhancements
+
+✅ **Employee Animations & Tool Call Display**
+- Added typing/thinking animations for working employees
+- Chat bubbles display tool calls above employees
+- Floating status bars show progress and status
+- Smart navigation triggers return employees to desks
+- Enhanced employee component with controllable states
+
 ## TODOs
 
 - [ ] Deploy to production
 - [ ] Record demo video
 - [ ] Add demo GIFs to README
-- [ ] Consider starting Three.js visualization
-- [ ] Polish UI animations
+- [ ] Polish UI animations (consider adding celebration animation on completion)
 - [ ] Add more example use cases
+- [ ] Consider adding sound effects for tool calls
 
 ---
 

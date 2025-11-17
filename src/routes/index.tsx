@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Sparkles, Zap, Clock, Database, Building2 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { AppNavDropdown } from "@/components/navigation/app-nav-dropdown";
@@ -49,6 +48,9 @@ function Home() {
             </div>
           </Link>
           <nav className="flex items-center gap-4">
+            <Link to="/pricing">
+              <Button variant="ghost">Pricing</Button>
+            </Link>
             <AppNavDropdown />
             <SignedIn>
               <Link to="/research-chat">

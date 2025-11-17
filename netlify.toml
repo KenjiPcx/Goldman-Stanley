@@ -1,6 +1,6 @@
 [build]
-  command = "vite build"
-  dir = "dist/client"
+  command = "pnpm build"
+  # The @netlify/vite-plugin-tanstack-start plugin handles the publish directory automatically
 [dev]
-  command = "vite dev"
+  command = "pnpm dev"
   port = 3000

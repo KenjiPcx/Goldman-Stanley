@@ -1,11 +1,4 @@
 import { Link, createFileRoute } from '@tanstack/react-router';
-import { useQuery } from 'convex/react';
-import { api } from '@/convex/_generated/api';
-import { OfficeScene } from '@/components/office/OfficeScene';
-import { useState, useMemo } from 'react';
-import type { OfficeEmployee, OfficeDesk, StatusType } from '@/lib/office/types';
-import { DESK_SPACING } from '@/lib/office/constants';
-import { Id } from '@/convex/_generated/dataModel';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -16,138 +9,94 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { useState } from 'react';
+import { useOfficeData } from '@/hooks/useOfficeData';
+import OfficeSimulation from '@/components/office/OfficeSimulation';
+import { Home, MessageSquare, DollarSign, Info, Users } from 'lucide-react';
+import { useUser } from '@/contexts/user-context';
+import { useQuery } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import { UserButton } from '@clerk/clerk-react';
+import { PricingTable } from 'autumn-js/react';
+import WorkerPurchase from '@/components/office/WorkerPurchase';
+import { CreditsDisplay } from '@/components/navigation/CreditsDisplay';
 
 export const Route = createFileRoute('/office')({
     component: OfficePage,
 });
 
 function OfficePage() {
-    const taskExecutions = useQuery(api.office.officeQueries.getActiveTaskExecutions);
-    const officeStats = useQuery(api.office.officeQueries.getOfficeStats);
-
-    const [selectedTaskId, setSelectedTaskId] = useState<Id<'taskExecutions'> | null>(null);
-    const [isDialogOpen, setIsDialogOpen] = useState(false);
-
-    // Get steps for selected task
-    const taskSteps = useQuery(
-        api.office.officeQueries.getTaskExecutionSteps,
-        selectedTaskId ? { taskExecutionId: selectedTaskId } : 'skip'
+    const { employees, desks, officeStats, officeQna, isLoading } = useOfficeData();
+    const [isQnaModalOpen, setQnaModalOpen] = useState(false);
+    const [isPricingModalOpen, setPricingModalOpen] = useState(false);
+    const [isWorkerPurchaseOpen, setWorkerPurchaseOpen] = useState(false);
+    const { user } = useUser();
+    const userId = user?.tokenIdentifier;
+    const concurrencyStatus = useQuery(
+        api.concurrency.workQueue.getUserConcurrencyStatus,
+        userId ? { userId } : 'skip'
     );
 
-    const baseDesks = useMemo<OfficeDesk[]>(() => {
-        const layout: OfficeDesk[] = [];
-        const desksPerRow = 5;
-        const rows = 2;
-
-        for (let row = 0; row < rows; row++) {
-            for (let col = 0; col < desksPerRow; col++) {
-                const x = (col - (desksPerRow - 1) / 2) * DESK_SPACING;
-                const z = (row - (rows - 1) / 2) * DESK_SPACING + 12;
-
-                layout.push({
-                    id: `desk-${row}-${col}`,
-                    position: [x, 0, z],
-                    rotationY: Math.PI,
-                });
-            }
-        }
-
-        return layout;
-    }, []);
-
-    const desks = useMemo<OfficeDesk[]>(() => {
-        const clones = baseDesks.map((desk) => ({ ...desk }));
-
-        if (!taskExecutions) return clones;
-
-        taskExecutions.forEach((task, index) => {
-            const deskIndex = index % clones.length;
-            clones[deskIndex] = {
-                ...clones[deskIndex],
-                occupantId: task._id,
-                taskExecutionId: task._id,
-            };
-        });
-
-        return clones;
-    }, [baseDesks, taskExecutions]);
-
-    // Map task executions to employees
-    const employees = useMemo<OfficeEmployee[]>(() => {
-        if (!taskExecutions || desks.length === 0) return [];
-
-        return taskExecutions.map((task, index) => {
-            const desk = desks[index % desks.length];
-
-            let workState: OfficeEmployee['workState'] = 'idle';
-            switch (task.status) {
-                case 'running':
-                    workState = 'working';
-                    break;
-                case 'queued':
-                case 'awaiting_input':
-                    workState = 'busy';
-                    break;
-                default:
-                    workState = 'idle';
-            }
-
-            let status: StatusType = 'none';
-            if (task.status === 'failed') {
-                status = 'warning';
-            } else if (task.status === 'completed') {
-                status = 'success';
-            } else if (task.latestStep) {
-                status = 'info';
-            }
-
-            const statusMessage = task.latestStep?.message || task.latestStep?.stepName;
-
-            const initialPosition: [number, number, number] = [
-                desk.position[0],
-                0,
-                desk.position[2] - 0.75,
-            ];
-
-            return {
-                id: task._id,
-                name: `Researcher ${index + 1}`,
-                initialPosition,
-                workState,
-                isBusy: workState === 'working',
-                status,
-                statusMessage,
-                taskExecutionId: task._id,
-                deskId: desk.id,
-            };
-        });
-    }, [taskExecutions, desks]);
-
-    const handleEmployeeClick = (employee: OfficeEmployee) => {
-        if (employee.taskExecutionId) {
-            setSelectedTaskId(employee.taskExecutionId);
-            setIsDialogOpen(true);
-        }
-    };
-
-    const handleDeskClick = (desk: OfficeDesk) => {
-        if (desk.taskExecutionId) {
-            setSelectedTaskId(desk.taskExecutionId);
-            setIsDialogOpen(true);
-        }
-    };
+    if (isLoading) {
+        return (
+            <div className="relative w-full h-screen flex items-center justify-center">
+                <div className="text-lg text-muted-foreground">Loading office data...</div>
+            </div>
+        );
+    }
 
     return (
         <div className="relative w-full h-screen">
-            {/* Navigation overlay */}
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur rounded-full px-4 py-2 shadow-lg">
-                <Link to="/">
-                    <Button variant="outline">← Back to Home</Button>
-                </Link>
-                <Link to="/research-chat">
-                    <Button>Open Research Chat</Button>
-                </Link>
-            </div>
+            {/* Minimal Floating Navbar */}
+            <nav className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-white/95 dark:bg-gray-900/95 backdrop-blur-lg rounded-full shadow-lg border border-gray-200/50 dark:border-gray-800/50">
+                <div className="flex items-center gap-2 px-4 py-2">
+                    <Link to="/">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                            <Home className="h-4 w-4" />
+                        </Button>
+                    </Link>
+                    <Link to="/research-chat">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                            <MessageSquare className="h-4 w-4" />
+                        </Button>
+                    </Link>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full"
+                        onClick={() => setWorkerPurchaseOpen(true)}
+                        title="Purchase Workers"
+                    >
+                        <Users className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full"
+                        onClick={() => setPricingModalOpen(true)}
+                        title="Pricing Plans"
+                    >
+                        <DollarSign className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full"
+                        onClick={() => setQnaModalOpen(true)}
+                    >
+                        <Info className="h-4 w-4" />
+                    </Button>
+
+                    <div className="h-6 w-px bg-gray-300 dark:bg-gray-700 mx-1" />
+
+                    <CreditsDisplay />
+
+                    <div className="h-6 w-px bg-gray-300 dark:bg-gray-700 mx-1" />
+
+                    <UserButton afterSignOutUrl="/" />
+                </div>
+            </nav>
 
             {/* Stats overlay */}
             <div className="absolute top-4 left-4 z-10 bg-white/90 dark:bg-gray-800/90 rounded-lg shadow-lg p-4 space-y-2">
@@ -200,63 +149,84 @@ function OfficePage() {
                 </p>
             </div>
 
-            {/* Office scene */}
-            <OfficeScene
-                employees={employees}
-                desks={desks}
-                onEmployeeClick={handleEmployeeClick}
-                onDeskClick={handleDeskClick}
-            />
+            {/* Office simulation with 3D scene and interactions */}
+            <OfficeSimulation employees={employees} desks={desks} />
 
-            {/* Task execution details dialog */}
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="max-w-2xl max-h-[80vh]">
+            {/* Q&A modal */}
+            <Dialog open={isQnaModalOpen} onOpenChange={setQnaModalOpen}>
+                <DialogContent className="max-w-3xl max-h-[80vh]">
                     <DialogHeader>
-                        <DialogTitle>Task Execution Logs</DialogTitle>
+                        <DialogTitle>How This Office Works</DialogTitle>
                         <DialogDescription>
-                            View the detailed execution steps for this research task
+                            Reference guide covering task mapping, concurrency, pricing, and agent integrations.
                         </DialogDescription>
                     </DialogHeader>
-
                     <ScrollArea className="h-[60vh] pr-4">
-                        {taskSteps && taskSteps.length > 0 ? (
-                            <div className="space-y-4">
-                                {taskSteps.map((step) => (
+                        {officeQna ? (
+                            <div className="space-y-6">
+                                <p className="text-sm text-muted-foreground">{officeQna.summary}</p>
+                                {officeQna.entries.map((entry) => (
                                     <div
-                                        key={step._id}
-                                        className="border-l-2 border-blue-500 pl-4 py-2"
+                                        key={entry.question}
+                                        className="border rounded-lg p-4 bg-muted/40 space-y-2"
                                     >
-                                        <div className="font-semibold text-sm">{step.stepName}</div>
-                                        {step.message && (
-                                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                                {step.message}
-                                            </div>
-                                        )}
-                                        {step.detail && (
-                                            <div className="text-xs text-gray-500 dark:text-gray-500 mt-1 font-mono bg-gray-100 dark:bg-gray-800 p-2 rounded">
-                                                {step.detail}
-                                            </div>
-                                        )}
-                                        {step.progress !== undefined && (
-                                            <div className="text-xs text-gray-500 mt-1">
-                                                Progress: {Math.round(step.progress * 100)}%
-                                            </div>
-                                        )}
-                                        <div className="text-xs text-gray-400 mt-1">
-                                            {new Date(step.createdAt).toLocaleString()}
+                                        <div className="flex items-center justify-between gap-3">
+                                            <h4 className="text-base font-semibold">{entry.question}</h4>
+                                            <Badge variant="outline">{entry.category}</Badge>
                                         </div>
+                                        <p className="text-sm text-muted-foreground">{entry.answer}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            Last updated {new Date(entry.lastUpdated).toLocaleDateString()}
+                                        </p>
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <div className="text-center text-gray-500 py-8">
-                                No execution steps available
+                            <div className="flex flex-col items-center justify-center py-8 text-sm text-muted-foreground">
+                                Loading office knowledge…
                             </div>
                         )}
                     </ScrollArea>
                 </DialogContent>
             </Dialog>
+
+            {/* Worker Purchase Modal */}
+            <WorkerPurchase open={isWorkerPurchaseOpen} onOpenChange={setWorkerPurchaseOpen} />
+
+            {/* Pricing modal */}
+            <Dialog open={isPricingModalOpen} onOpenChange={setPricingModalOpen}>
+                <DialogContent className="max-w-4xl max-h-[90vh]">
+                    <DialogHeader>
+                        <DialogTitle>Choose your research cadence</DialogTitle>
+                        <DialogDescription>
+                            Powered by Autumn. Every plan bills purely on completed research tasks, and you can
+                            upgrade or downgrade at any time.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <ScrollArea className="h-[70vh] pr-4">
+                        <Card className="p-6">
+                            <PricingTable />
+                        </Card>
+                        <div className="text-sm text-muted-foreground mt-4">
+                            Questions about custom concurrency or enterprise data residency? Email{' '}
+                            <a className="underline" href="mailto:hello@goldmanstanley.ai">
+                                hello@goldmanstanley.ai
+                            </a>
+                            .
+                        </div>
+                    </ScrollArea>
+                </DialogContent>
+            </Dialog>
+
         </div>
     );
 }
 
+function MiniStat({ label, value }: { label: string; value: number }) {
+    return (
+        <div className="rounded-xl bg-muted/40 py-2">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+            <p className="text-base font-semibold">{value}</p>
+        </div>
+    );
+}

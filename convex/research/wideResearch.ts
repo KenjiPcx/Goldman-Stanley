@@ -252,6 +252,7 @@ export const startTaskExecutionWorkflow = internalAction({
         batchId: v.id("batchTaskOrchestrations"),
         target: v.string(),
         outputFormat: v.string(),
+        queueItemId: v.optional(v.id("userWorkQueue")),
     },
     returns: v.null(),
     handler: async (ctx, args) => {
@@ -270,6 +271,7 @@ export const startTaskExecutionWorkflow = internalAction({
                         batchId: args.batchId,
                         target: args.target,
                         taskExecutionId: args.taskExecutionId,
+                        queueItemId: args.queueItemId,
                     },
                 }
             );
@@ -311,6 +313,7 @@ export const handleResearchComplete = internalMutation({
             batchId: v.id("batchTaskOrchestrations"),
             target: v.string(),
             taskExecutionId: v.id("taskExecutions"),
+            queueItemId: v.optional(v.id("userWorkQueue")),
         }),
     },
     returns: v.null(),
@@ -352,6 +355,14 @@ export const handleResearchComplete = internalMutation({
             completedWorkflowIds: [...batch.completedWorkflowIds, args.workflowId],
             updatedAt: Date.now(),
         });
+
+        // Release concurrency slot if this task was queued through the user work queue
+        if (args.context.queueItemId) {
+            await ctx.runMutation(internal.concurrency.workQueue.completeQueuedTask, {
+                queueItemId: args.context.queueItemId,
+                success: isSuccess,
+            });
+        }
 
         console.log(`[handleResearchComplete] Progress: ${newCompletedInChunk}/${batch.currentChunkSize} in current chunk`);
         console.log(`[handleResearchComplete] Global progress: ${newCompletedCount + newFailedCount}/${batch.targets.length} total`);

@@ -3,6 +3,7 @@ import { Menu, X } from "lucide-react";
 import { AppNavDropdown } from "@/components/navigation/app-nav-dropdown";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { UserButton } from "@clerk/clerk-react";
+import { CreditsDisplay } from "@/components/navigation/CreditsDisplay";
 
 interface ChatHeaderProps {
     sidebarOpen: boolean;
@@ -25,6 +26,8 @@ export function ChatHeader({ sidebarOpen, onToggleSidebar }: ChatHeaderProps) {
                     <h1 className="text-lg font-semibold">Research Assistant</h1>
                 </div>
                 <div className="flex items-center gap-2">
+                    <CreditsDisplay />
+                    <div className="h-4 w-px bg-border" />
                     <AppNavDropdown />
                     <ThemeToggle />
                     <UserButton />
