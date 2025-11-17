@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Search, Sparkles, Zap, Clock, Database } from "lucide-react";
-import Link from "next/link";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { BackgroundImage } from "@/components/theme/background-image";
 import { AppNavDropdown } from "@/components/navigation/app-nav-dropdown";
@@ -34,17 +33,17 @@ export default function Home() {
             {/* Header */}
             <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
                 <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-                    <Link href="/" className="flex items-center gap-3">
+                    <a href="/" className="flex items-center gap-3">
                         <span className="text-2xl font-bold">Goldman Stanley</span>
-                    </Link>
+                    </a>
                     <nav className="flex items-center gap-4">
                         <AppNavDropdown />
-                        <Link href="/research-chat">
+                        <a href="/research-chat">
                             <Button variant="ghost">Research Chat</Button>
-                        </Link>
-                        <Link href="/datasets">
+                        </a>
+                        <a href="/datasets">
                             <Button variant="ghost">Datasets</Button>
-                        </Link>
+                        </a>
                         <ThemeToggle />
                     </nav>
                 </div>
@@ -73,18 +72,18 @@ export default function Home() {
 
                     {/* CTA Buttons */}
                     <div className="flex gap-4 justify-center items-center">
-                        <Link href="/research-chat">
+                        <a href="/research-chat">
                             <Button size="lg" className="h-14 px-8 text-lg">
                                 <Sparkles className="mr-2 h-5 w-5" />
                                 Start Research
                             </Button>
-                        </Link>
-                        <Link href="/datasets">
+                        </a>
+                        <a href="/datasets">
                             <Button size="lg" variant="outline" className="h-14 px-8 text-lg">
                                 <Database className="mr-2 h-5 w-5" />
                                 View Datasets
                             </Button>
-                        </Link>
+                        </a>
                     </div>
                 </div>
 
