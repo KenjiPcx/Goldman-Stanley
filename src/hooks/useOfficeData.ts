@@ -84,14 +84,11 @@ function extractToolCallInfo(step: { stepName: string; message?: string; detail?
 }
 
 export function useOfficeData() {
-    // Fetch data from Convex
-    const taskExecutions = useQuery(api.office.officeQueries.getActiveTaskExecutions);
+    // Fetch office data from Convex (queue-based system)
     const officeStats = useQuery(api.office.officeQueries.getOfficeStats);
     const officeQna = useQuery(api.docs.systemDocs.getOfficeQna);
     const workerMapping = useQuery(api.office.officeQueries.getWorkerDeskMapping);
     const workQueueItems = useQuery(api.office.officeQueries.getUserWorkQueueWithWorkers);
-
-    // Note: taskExecutionsKey removed as it's no longer used
 
     // Map desks to workers - assign all purchased workers to desks
     // This creates stable desk assignments based on workerId
@@ -223,10 +220,9 @@ export function useOfficeData() {
     return {
         employees,
         desks,
-        taskExecutions,
         officeStats,
         officeQna,
-        isLoading: taskExecutions === undefined,
+        isLoading: workerMapping === undefined || workQueueItems === undefined,
     };
 }
 

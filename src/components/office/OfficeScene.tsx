@@ -93,12 +93,19 @@ function SceneContents({
     const deskRefs = useRef<Map<string, THREE.Group | null>>(new Map());
     const ceoDeskRef = useRef<THREE.Group | null>(null);
     const gridInitialized = useRef(false);
+    const [isMounted, setIsMounted] = useState(false);
     const deskIdsKey = useMemo(() => desks.map((desk) => desk.id).join(','), [desks]);
     const ceoDeskData = useMemo<OfficeDesk>(() => ({
         id: 'ceo-desk',
         position: CEO_DESK_POS,
         rotationY: Math.PI,
     }), []);
+
+    // Track when component is fully mounted
+    useEffect(() => {
+        setIsMounted(true);
+        return () => setIsMounted(false);
+    }, []);
 
     // Get theme colors for walls and floor from CSS variables
     const [floorColor, setFloorColor] = useState<THREE.Color>(new THREE.Color('#ffffff'));
@@ -141,25 +148,45 @@ function SceneContents({
         }
     }, []);
 
+    // Reset grid when desks change
     useEffect(() => {
         gridInitialized.current = false;
     }, [deskIdsKey]);
 
+    // Initialize pathfinding grid after component mounts and refs are ready
     useEffect(() => {
-        if (gridInitialized.current) return;
+        if (!isMounted || gridInitialized.current) return;
 
-        const interval = setInterval(() => {
-            const deskObjects = desks.map((desk) => deskRefs.current.get(desk.id)).filter((ref): ref is THREE.Group => !!ref);
-            const ceoDeskObj = ceoDeskRef.current;
-            if (deskObjects.length === desks.length && desks.length > 0 && ceoDeskObj) {
-                initializeGrid(FLOOR_SIZE, [...deskObjects, ceoDeskObj], 2, 4);
-                gridInitialized.current = true;
-                clearInterval(interval);
-            }
-        }, 200);
+        // Wait a bit after mount to ensure refs are fully settled
+        const initialDelay = setTimeout(() => {
+            let attempts = 0;
+            const maxAttempts = 20; // Max 4 seconds (20 * 200ms)
 
-        return () => clearInterval(interval);
-    }, [desks, deskIdsKey]);
+            const tryInitialize = () => {
+                attempts++;
+
+                const deskObjects = desks
+                    .map((desk) => deskRefs.current.get(desk.id))
+                    .filter((ref): ref is THREE.Group => !!ref);
+                const ceoDeskObj = ceoDeskRef.current;
+
+                // Check if all refs are ready
+                if (deskObjects.length === desks.length && desks.length > 0 && ceoDeskObj) {
+                    initializeGrid(FLOOR_SIZE, [...deskObjects, ceoDeskObj], 2, 4);
+                    gridInitialized.current = true;
+                } else if (attempts < maxAttempts) {
+                    // Use requestAnimationFrame for smoother, more React-friendly checks
+                    requestAnimationFrame(() => {
+                        setTimeout(tryInitialize, 200);
+                    });
+                }
+            };
+
+            tryInitialize();
+        }, 300); // Initial delay to let component settle after mount
+
+        return () => clearTimeout(initialDelay);
+    }, [isMounted, desks, deskIdsKey]);
 
     return (
         <>
@@ -363,86 +390,44 @@ const OfficeScene = memo((props: OfficeSceneProps) => {
         </Canvas>
     );
 }, (prevProps, nextProps) => {
-    // Custom comparison to prevent Canvas remounts when arrays change reference but not content
-    // This is crucial for performance - prevents WebGL context recreation on every prop update
+    // CRITICAL: Only remount Canvas for STRUCTURAL changes, not data updates!
+    // Employee/Desk components handle their own data updates via props
+    // Remounting Canvas = WebGL context loss = bad performance
 
-    // Check if array lengths changed
-    if (prevProps.employees.length !== nextProps.employees.length) return false;
-    if (prevProps.desks.length !== nextProps.desks.length) return false;
+    // Only check structural changes that require Canvas remount:
 
-    // Check if employee data meaningfully changed
+    // 1. Number of employees/desks changed (add/remove)
+    if (prevProps.employees.length !== nextProps.employees.length) {
+        return false; // Remount needed
+    }
+    if (prevProps.desks.length !== nextProps.desks.length) {
+        return false; // Remount needed
+    }
+
+    // 2. Employee IDs changed (different employees, not just data updates)
     for (let i = 0; i < prevProps.employees.length; i++) {
-        const prev = prevProps.employees[i];
-        const next = nextProps.employees[i];
-        if (!prev || !next) {
-            console.log('[OfficeScene] REMOUNT: employee undefined at index', i);
-            return false;
-        }
-
-        // Check critical fields that affect rendering
-        if (prev.id !== next.id) {
-            console.log('[OfficeScene] REMOUNT: employee id changed at index', i, prev.id, '→', next.id);
-            return false;
-        }
-        if (prev.workState !== next.workState) {
-            console.log('[OfficeScene] REMOUNT: employee workState changed', prev.id, prev.workState, '→', next.workState);
-            return false;
-        }
-        if (prev.status !== next.status) {
-            console.log('[OfficeScene] REMOUNT: employee status changed', prev.id, prev.status, '→', next.status);
-            return false;
-        }
-        if (prev.statusMessage !== next.statusMessage) {
-            console.log('[OfficeScene] REMOUNT: employee statusMessage changed', prev.id, prev.statusMessage, '→', next.statusMessage);
-            return false;
-        }
-        if (prev.isBusy !== next.isBusy) {
-            console.log('[OfficeScene] REMOUNT: employee isBusy changed', prev.id, prev.isBusy, '→', next.isBusy);
-            return false;
-        }
-
-        // Check position changes
-        if (prev.initialPosition[0] !== next.initialPosition[0] ||
-            prev.initialPosition[1] !== next.initialPosition[1] ||
-            prev.initialPosition[2] !== next.initialPosition[2]) {
-            console.log('[OfficeScene] REMOUNT: employee position changed', prev.id);
-            return false;
+        if (prevProps.employees[i]?.id !== nextProps.employees[i]?.id) {
+            return false; // Different employee at this position
         }
     }
 
-    // Check if desk data meaningfully changed
+    // 3. Desk IDs changed (different desks, not just assignments)
     for (let i = 0; i < prevProps.desks.length; i++) {
-        const prev = prevProps.desks[i];
-        const next = nextProps.desks[i];
-        if (!prev || !next) {
-            console.log('[OfficeScene] REMOUNT: desk undefined at index', i);
-            return false;
-        }
-
-        if (prev.id !== next.id) {
-            console.log('[OfficeScene] REMOUNT: desk id changed at index', i);
-            return false;
-        }
-        if (prev.occupantId !== next.occupantId) {
-            console.log('[OfficeScene] REMOUNT: desk occupantId changed', prev.id, prev.occupantId, '→', next.occupantId);
-            return false;
-        }
-        if (prev.taskExecutionId !== next.taskExecutionId) {
-            console.log('[OfficeScene] REMOUNT: desk taskExecutionId changed', prev.id, prev.taskExecutionId, '→', next.taskExecutionId);
-            return false;
-        }
-
-        // Check position changes
-        if (prev.position[0] !== next.position[0] ||
-            prev.position[1] !== next.position[1] ||
-            prev.position[2] !== next.position[2]) {
-            console.log('[OfficeScene] REMOUNT: desk position changed', prev.id);
-            return false;
+        if (prevProps.desks[i]?.id !== nextProps.desks[i]?.id) {
+            return false; // Different desk at this position
         }
     }
 
-    // Props are equal in content, skip re-render (return true)
-    return true;
+    // 4. Callback references changed (rare, but check)
+    if (prevProps.onEmployeeClick !== nextProps.onEmployeeClick ||
+        prevProps.onDeskClick !== nextProps.onDeskClick) {
+        return false; // Callback changed
+    }
+
+    // All structural checks passed - skip Canvas remount
+    // Employee/Desk data updates (status, messages, etc.) will flow through
+    // as prop updates to child components WITHOUT remounting Canvas
+    return true; // Skip re-render, prevent WebGL context loss
 });
 
 OfficeScene.displayName = 'OfficeScene';

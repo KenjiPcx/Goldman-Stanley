@@ -1,77 +1,31 @@
+/**
+ * Office Visualization Queries
+ * 
+ * Architecture: Work Queue Based System
+ * =====================================
+ * The office visualization is now fully based on the work queue system:
+ * 
+ * 1. Workers are assigned to desks (workerId -> desk mapping in frontend)
+ * 2. Tasks are queued and assigned to specific workers (userWorkQueue table)
+ * 3. UI shows worker capacity, active tasks, and queue depth per worker
+ * 
+ * Key Queries:
+ * - getWorkerDeskMapping: Returns max workers and which workers have tasks
+ * - getUserWorkQueueWithWorkers: Returns all queue items with full task details
+ * - getTaskExecutionSteps: Returns execution log for a specific task
+ * - getOfficeStats: Returns aggregate statistics for the dashboard
+ * 
+ * Note: Old employee-based queries removed in favor of queue-first approach
+ */
+
 import { v } from "convex/values";
 import { query } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
 import { getCurrentUserId } from "../auth/helpers";
 
 /**
- * Get all active task executions with their latest steps
- * Maps to office employees
- */
-export const getActiveTaskExecutions = query({
-    args: {},
-    returns: v.array(v.object({
-        _id: v.id("taskExecutions"),
-        workflowName: v.string(),
-        status: v.union(
-            v.literal("queued"),
-            v.literal("running"),
-            v.literal("awaiting_input"),
-            v.literal("completed"),
-            v.literal("failed")
-        ),
-        inputPrompt: v.string(),
-        startedAt: v.number(),
-        completedAt: v.optional(v.number()),
-        latestStep: v.optional(v.object({
-            stepName: v.string(),
-            message: v.optional(v.string()),
-            progress: v.optional(v.number()),
-            createdAt: v.number(),
-        })),
-        context: v.optional(v.any()),
-    })),
-    handler: async (ctx) => {
-        // Get all task executions from the last 24 hours
-        const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-        const taskExecutions = await ctx.db
-            .query("taskExecutions")
-            .filter((q) => q.gte(q.field("startedAt"), oneDayAgo))
-            .order("desc")
-            .take(50); // Limit to 50 most recent
-
-        // For each task execution, get the latest step
-        const result = [];
-        for (const task of taskExecutions) {
-            const latestStep = await ctx.db
-                .query("taskExecutionSteps")
-                .withIndex("by_taskExecution", (q) => q.eq("taskExecutionId", task._id))
-                .order("desc")
-                .first();
-
-            result.push({
-                _id: task._id,
-                workflowName: task.workflowName,
-                status: task.status,
-                inputPrompt: task.inputPrompt,
-                startedAt: task.startedAt,
-                completedAt: task.completedAt,
-                latestStep: latestStep ? {
-                    stepName: latestStep.stepName,
-                    message: latestStep.message,
-                    progress: latestStep.progress,
-                    createdAt: latestStep.createdAt,
-                } : undefined,
-                context: task.context,
-            });
-        }
-
-        return result;
-    },
-});
-
-/**
  * Get task execution steps for a specific task
- * Used when clicking on a desk to see execution logs
+ * Used when clicking on a desk/employee to see execution logs
  */
 export const getTaskExecutionSteps = query({
     args: {
@@ -232,8 +186,9 @@ export const getUserWorkQueueWithWorkers = query({
 });
 
 /**
- * Get worker assignments mapped to desks
- * Returns a mapping of workerId -> deskId -> tasks
+ * Get worker capacity for current user
+ * Returns the max number of workers (for desk/employee rendering)
+ * and summary of which workers have active tasks
  */
 export const getWorkerDeskMapping = query({
     args: {},
@@ -241,7 +196,6 @@ export const getWorkerDeskMapping = query({
         maxWorkers: v.number(),
         workers: v.array(v.object({
             workerId: v.number(),
-            deskId: v.string(),
             currentTask: v.optional(v.id("taskExecutions")),
             queuedTasks: v.array(v.id("taskExecutions")),
             runningTasks: v.array(v.id("taskExecutions")),
@@ -253,9 +207,7 @@ export const getWorkerDeskMapping = query({
             return { maxWorkers: 0, workers: [] };
         }
 
-        // Get worker count from database subscription
-        // Note: Queries cannot call Autumn directly (uses fetch()).
-        // This reads from cached subscription data.
+        // Get worker capacity from subscription
         const subscription = await ctx.db
             .query("userSubscriptions")
             .withIndex("by_userId", (q) => q.eq("userId", userId))
@@ -263,13 +215,13 @@ export const getWorkerDeskMapping = query({
 
         const maxWorkers = subscription?.purchasedWorkers ?? 3;
 
-        // Get all work queue items
+        // Get all active work queue items (running + queued)
         const queueItems = await ctx.db
             .query("userWorkQueue")
             .withIndex("by_userId_and_status", (q) => q.eq("userId", userId))
             .collect();
 
-        // Group by workerId
+        // Group tasks by workerId
         const workerMap = new Map<number, {
             workerId: number;
             queuedTasks: Id<"taskExecutions">[];
@@ -277,7 +229,9 @@ export const getWorkerDeskMapping = query({
         }>();
 
         for (const item of queueItems) {
-            if (item.workerId === undefined) continue;
+            if (item.workerId === undefined || item.status === "completed" || item.status === "failed") {
+                continue;
+            }
 
             if (!workerMap.has(item.workerId)) {
                 workerMap.set(item.workerId, {
@@ -295,20 +249,13 @@ export const getWorkerDeskMapping = query({
             }
         }
 
-        // Map workers to desks (workerId -> deskId)
-        const workers = Array.from(workerMap.values()).map((worker) => {
-            // Consistent mapping: workerId maps to desk index
-            const deskIndex = worker.workerId % 10; // 10 desks
-            const deskId = `desk-${Math.floor(deskIndex / 5)}-${deskIndex % 5}`;
-
-            return {
-                workerId: worker.workerId,
-                deskId,
-                currentTask: worker.runningTasks[0], // First running task
-                queuedTasks: worker.queuedTasks,
-                runningTasks: worker.runningTasks,
-            };
-        });
+        // Convert to array (desk mapping handled in frontend)
+        const workers = Array.from(workerMap.values()).map((worker) => ({
+            workerId: worker.workerId,
+            currentTask: worker.runningTasks[0], // Current running task
+            queuedTasks: worker.queuedTasks,
+            runningTasks: worker.runningTasks,
+        }));
 
         return {
             maxWorkers,
